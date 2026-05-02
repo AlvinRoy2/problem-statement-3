@@ -1,5 +1,6 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
+import { trackEvent } from '../utils/googleAnalytics';
 
 const STEP_META = {
     1: { image: '/step1.png', color: '#3b82f6', emoji: null },
@@ -8,119 +9,84 @@ const STEP_META = {
     4: { image: null,        color: '#10b981', emoji: '🗳️' },
 };
 
-const getActionLinks = (location) => {
-    const region = location?.region;
-    const voteGovLink = region && region !== "Unknown"
-        ? `https://vote.gov/register/${region.toLowerCase().replace(/\s+/g, '-')}` 
-        : 'https://vote.gov/';
-    return { voteGovLink };
-};
-
 export default function StepDetails({ location }) {
     const { id } = useParams();
-    const { voteGovLink } = getActionLinks(location);
     const meta = STEP_META[id] || { color: '#3b82f6', image: null, emoji: '📋' };
+
+    useEffect(() => {
+        // Track page view for specific step
+        trackEvent('view_step_details', { step_id: id });
+    }, [id]);
+
+    const handleLinkClick = (linkName) => {
+        trackEvent('external_link_click', { link_name: linkName });
+    };
 
     const stepData = {
         1: {
-            title: "Voter Registration Guide",
+            title: "Voter Registration Guide (EPIC)",
             content: (
                 <>
                     {location?.region && location.region !== "Unknown" && (
                         <div style={{ background: 'rgba(16, 185, 129, 0.1)', border: '1px solid #10b981', padding: '15px', borderRadius: '10px', marginBottom: '20px' }}>
-                            <strong>📍 Location Detected:</strong> You appear to be in <strong>{location.region}</strong>. Registration rules vary by state, so be sure to check the specific guidelines for {location.region}.
+                            <strong>📍 Location Detected:</strong> You appear to be in <strong>{location.region}</strong>. Make sure your name is registered in the Electoral Roll of your constituency in {location.region}.
                         </div>
                     )}
                     
                     <h3 style={{marginTop: '20px', marginBottom: '10px'}}>Where to Start</h3>
-                    <p>The most direct way to begin is by visiting the official U.S. government portal. It will direct you to your state's exact registration site.</p>
-                    <a href={voteGovLink} target="_blank" rel="noreferrer" className="btn primary-btn" style={{marginTop: '10px', marginBottom: '20px', display: 'inline-block'}}>
-                        Register at Vote.gov
+                    <p>The most direct way to begin is by visiting the official National Voters' Service Portal (NVSP) or the Voters' Service Portal of the Election Commission of India (ECI).</p>
+                    <a href="https://voters.eci.gov.in/" target="_blank" rel="noreferrer" onClick={() => handleLinkClick('NVSP_Portal')} className="btn primary-btn" style={{marginTop: '10px', marginBottom: '20px', display: 'inline-block'}}>
+                        Register at ECI Portal
                     </a>
                     
                     <h3 style={{marginTop: '20px', marginBottom: '10px'}}>Methods of Registration</h3>
                     <ul>
-                        <li style={{marginBottom: '10px'}}><strong>Online:</strong> Many states allow you to register online using a driver's license or state-issued ID.</li>
-                        <li style={{marginBottom: '10px'}}><strong>By Mail:</strong> You can download, print, and sign the National Mail Voter Registration Form, then mail it to your state election office.</li>
-                        <li style={{marginBottom: '10px'}}><strong>In-Person:</strong> Register at local election offices, the DMV, or public assistance agencies.</li>
+                        <li style={{marginBottom: '10px'}}><strong>Online:</strong> Fill Form 6 online via the Voters' Service Portal or the Voter Helpline App.</li>
+                        <li style={{marginBottom: '10px'}}><strong>Offline:</strong> Download and print Form 6, fill it out, and submit it to the Electoral Registration Officer (ERO) or Booth Level Officer (BLO) of your area.</li>
                     </ul>
 
-                    <h3 style={{marginTop: '20px', marginBottom: '10px'}}>Important Considerations</h3>
+                    <h3 style={{marginTop: '20px', marginBottom: '10px'}}>Important Documents Required</h3>
                     <ul>
-                        <li style={{marginBottom: '10px'}}><strong>Deadlines:</strong> Every state has its own deadline. Ensure you register or postmark your mail well before Election Day.</li>
-                        <li style={{marginBottom: '10px'}}><strong>Documents Ready:</strong> Most states require proof of identity like a driver's license. If you lack one, utility bills or bank statements may be accepted depending on your location.</li>
+                        <li style={{marginBottom: '10px'}}><strong>Age Proof:</strong> Birth Certificate, Aadhaar Card, PAN Card, or 10th Class Marksheet.</li>
+                        <li style={{marginBottom: '10px'}}><strong>Address Proof:</strong> Aadhaar Card, Passport, Ration Card, or latest Utility Bill.</li>
                     </ul>
-                    
-                    <div style={{ background: 'rgba(236, 72, 153, 0.1)', borderLeft: '4px solid var(--accent-secondary)', padding: '15px', marginTop: '20px' }}>
-                        <strong>💡 Pro-Tip for College Students:</strong> You generally have the right to choose whether to register at your home address or your campus address. Choose the location where you consider yourself a resident!
-                    </div>
                 </>
             )
         },
         2: {
-            title: "Candidate & Measure Research",
+            title: "Constituency & Candidate Research",
             content: (
                 <>
-                    <h3 style={{marginTop: '20px', marginBottom: '10px'}}>Identify What Is on Your Ballot</h3>
-                    <p>Before heading to the polls, know who and what you are voting on. You can usually find a sample ballot on your local election office's website or use powerful nonpartisan tools to generate a custom ballot based on your exact address.</p>
+                    <h3 style={{marginTop: '20px', marginBottom: '10px'}}>Identify Your Constituency</h3>
+                    <p>Before heading to the polls, know your Lok Sabha and Vidhan Sabha constituency. You can check these details on the ECI Electoral Search portal using your EPIC number.</p>
                     
                     <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap', marginTop: '15px', marginBottom: '20px' }}>
-                        <a href="https://ballotpedia.org/Sample_Ballot_Lookup" target="_blank" rel="noreferrer" className="btn primary-btn" style={{background: '#333', boxShadow: 'none'}}>
-                            Ballotpedia Lookup
-                        </a>
-                        <a href="https://www.vote411.org/ballot" target="_blank" rel="noreferrer" className="btn primary-btn" style={{background: '#d32f2f', boxShadow: 'none'}}>
-                            VOTE411 Guide
+                        <a href="https://electoralsearch.eci.gov.in/" target="_blank" rel="noreferrer" onClick={() => handleLinkClick('ECI_Electoral_Search')} className="btn primary-btn" style={{background: '#333', boxShadow: 'none'}}>
+                            ECI Electoral Search
                         </a>
                     </div>
                     
-                    <h3 style={{marginTop: '20px', marginBottom: '10px'}}>Deep Dive into Candidates</h3>
+                    <h3 style={{marginTop: '20px', marginBottom: '10px'}}>Researching Candidates</h3>
                     <ul>
-                        <li style={{marginBottom: '10px'}}><strong>Official Websites:</strong> Read their platforms and policy priorities directly from the source.</li>
-                        <li style={{marginBottom: '10px'}}><strong>Voting Records & Experience:</strong> Review what incumbents have actually done in office, not just what they say.</li>
-                        <li style={{marginBottom: '10px'}}><strong>Endorsements & Finance:</strong> Look at who supports them. Check out <a href="https://www.opensecrets.org/" target="_blank" rel="noreferrer" style={{color: 'var(--accent-primary)'}}>OpenSecrets</a> to see campaign donors and potential influences.</li>
+                        <li style={{marginBottom: '10px'}}><strong>Know Your Candidate (KYC) App:</strong> The ECI provides the KYC App where you can see the criminal antecedents and affidavits of all candidates.</li>
+                        <li style={{marginBottom: '10px'}}><strong>Affidavits:</strong> Read the official affidavits filed by candidates during nomination to understand their assets, liabilities, and educational background.</li>
                     </ul>
-
-                    <h3 style={{marginTop: '20px', marginBottom: '10px'}}>Understand Ballot Measures</h3>
-                    <p>Ballot measures can be complex and sometimes misleadingly worded. Always look for nonpartisan summaries that clearly explain the pros, cons, and actual real-world impact of a "yes" or "no" vote.</p>
                 </>
             )
         },
         3: {
-            title: "Choosing How to Vote",
+            title: "Locate Polling Booth",
             content: (
                 <>
-                    <h3 style={{marginTop: '20px', marginBottom: '10px'}}>Mail-in or Absentee Voting</h3>
-                    <p>If you prefer to vote by mail, check your state's laws. Some states require an "excuse" (like being out of state or having an illness), while others offer no-excuse absentee voting. Always request your ballot early and follow return instructions carefully.</p>
+                    <h3 style={{marginTop: '20px', marginBottom: '10px'}}>Find Your Designated Booth</h3>
+                    <p>You can only vote at the designated polling station for your part of the electoral roll. Check your polling booth slip or search online.</p>
                     
-                    <a href="https://www.vote.org/absentee-ballot/" target="_blank" rel="noreferrer" className="btn primary-btn" style={{marginTop: '10px', marginBottom: '20px', display: 'inline-block'}}>
-                        Request Absentee Ballot
+                    <a href="https://electoralsearch.eci.gov.in/" target="_blank" rel="noreferrer" onClick={() => handleLinkClick('Find_Polling_Booth')} className="btn primary-btn" style={{marginTop: '10px', marginBottom: '20px', display: 'inline-block'}}>
+                        Search Polling Station
                     </a>
                     
-                    <h3 style={{marginTop: '20px', marginBottom: '10px'}}>Early Voting</h3>
-                    <p>Many states offer early in-person voting. This is a great way to avoid long lines on Election Day. Check your local election office for early voting dates, times, and locations, as they often differ from Election Day polling places.</p>
-                    
-                    <h3 style={{marginTop: '20px', marginBottom: '10px'}}>Election Day Voting</h3>
-                    <p>If you plan to vote on the designated Election Day, verify your polling place assignment and hours. Arrive prepared with any necessary identification.</p>
-                    
-                    <div style={{ background: 'rgba(59, 130, 246, 0.1)', borderLeft: '4px solid var(--accent-primary)', padding: '15px', marginTop: '20px' }}>
-                        <strong>💡 Pro-Tip:</strong> If you are voting by mail, make sure you sign the envelope exactly as you signed your voter registration card. Signature mismatch is a common reason mail-in ballots are rejected.
-                    </div>
-                </>
-            )
-        },
-        4: {
-            title: "What to Know Before Casting Your Ballot",
-            content: (
-                <>
-                    <h3 style={{marginTop: '20px', marginBottom: '10px'}}>Voter Identification Requirements</h3>
-                    <p>Voter ID laws vary drastically by state. Some require strict government-issued photo ID, while others require no ID at all. <strong>Always verify your state's specific requirements before heading out.</strong></p>
-                    
-                    <a href="https://www.vote.org/voter-id-laws/" target="_blank" rel="noreferrer" className="btn primary-btn" style={{marginTop: '10px', marginBottom: '20px', display: 'inline-block', background: '#eab308', color: '#000', boxShadow: 'none'}}>
-                        Check ID Requirements
-                    </a>
-                    
-                    <h3 style={{marginTop: '20px', marginBottom: '10px'}}>Find Polling Places Near You</h3>
-                    <p>You are assigned a specific polling place based on your address. Use the map below to search for polling locations near you, or visit your state's official election website to confirm your assigned precinct.</p>
+                    <h3 style={{marginTop: '20px', marginBottom: '10px'}}>Locate on Map</h3>
+                    <p>Use the map below to search for nearby polling stations or government schools (which often serve as booths).</p>
                     
                     {/* Google Maps Embed — searches for polling places near user */}
                     <div style={{marginTop: '15px', marginBottom: '20px', borderRadius: '12px', overflow: 'hidden', border: '1px solid var(--glass-border)'}}>
@@ -131,18 +97,27 @@ export default function StepDetails({ location }) {
                             loading="lazy"
                             allowFullScreen
                             referrerPolicy="no-referrer-when-downgrade"
-                            src={`https://www.google.com/maps/embed/v1/search?key=${import.meta.env.VITE_GOOGLE_MAPS_API_KEY || ''}&q=polling+place+near+${encodeURIComponent(location?.city || location?.region || 'me')}`}
+                            src={`https://www.google.com/maps/embed/v1/search?key=${import.meta.env.VITE_GOOGLE_MAPS_API_KEY || ''}&q=government+school+or+polling+booth+near+${encodeURIComponent(location?.city || location?.region || 'me')}`}
                             style={{border: 0, display: 'block'}}
                             aria-label="Google Maps showing polling places nearby"
                         />
                     </div>
-
-                    <a href="https://www.vote.org/polling-place-locator/" target="_blank" rel="noreferrer" className="btn primary-btn" style={{marginTop: '0px', marginBottom: '20px', display: 'inline-block'}}>
-                        Official Polling Place Locator
-                    </a>
-
-                    <h3 style={{marginTop: '20px', marginBottom: '10px'}}>Provisional Ballots</h3>
-                    <p>If you forget your ID or if your name isn't on the roster, you have the federal right to cast a provisional ballot. These are kept separate and counted once election officials verify your eligibility.</p>
+                </>
+            )
+        },
+        4: {
+            title: "Cast Vote via EVM/VVPAT",
+            content: (
+                <>
+                    <h3 style={{marginTop: '20px', marginBottom: '10px'}}>What to carry</h3>
+                    <p>Bring your EPIC card (Voter ID). If you don't have it, ECI allows alternative photo IDs like Aadhaar, PAN Card, Driving License, or Passport, provided your name is on the electoral roll.</p>
+                    
+                    <h3 style={{marginTop: '20px', marginBottom: '10px'}}>Using the EVM & VVPAT</h3>
+                    <ul>
+                        <li style={{marginBottom: '10px'}}>Press the blue button against the name and symbol of your chosen candidate.</li>
+                        <li style={{marginBottom: '10px'}}>You will hear a long beep sound confirming your vote.</li>
+                        <li style={{marginBottom: '10px'}}>Check the VVPAT machine. A slip will appear behind the glass window for 7 seconds showing the serial number, name, and symbol of the candidate you voted for.</li>
+                    </ul>
                     
                     <div style={{ background: 'rgba(236, 72, 153, 0.1)', borderLeft: '4px solid var(--accent-secondary)', padding: '15px', marginTop: '20px' }}>
                         <strong>💡 Know Your Rights:</strong> As long as you are in line when the polls close, you have the legal right to stay in line and cast your ballot. Do not leave the line!
@@ -167,7 +142,6 @@ export default function StepDetails({ location }) {
 
     return (
         <div className="container" style={{paddingTop: '120px', paddingBottom: '100px'}}>
-            {/* Back Link */}
             <Link
                 to="/#timeline-section"
                 className="step-back-link"
@@ -176,7 +150,6 @@ export default function StepDetails({ location }) {
                 <span aria-hidden="true">←</span> Back to Timeline
             </Link>
 
-            {/* Page hero banner with step image */}
             <div className="step-hero glass-panel" style={{ borderTop: `4px solid ${meta.color}` }}>
                 {meta.image ? (
                     <img
@@ -198,7 +171,6 @@ export default function StepDetails({ location }) {
                 </div>
             </div>
 
-            {/* Content panel */}
             <div className="glass-panel step-content-panel">
                 <div style={{ color: 'var(--text-secondary)', fontSize: '1.05rem', lineHeight: '1.9' }}>
                     {step.content}

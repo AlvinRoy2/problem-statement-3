@@ -1,11 +1,13 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, memo } from 'react';
 import { sendChatMessage } from '../utils/apiService';
+import { trackChatbotInteraction } from '../utils/googleAnalytics';
 
 /**
  * Chatbot Component
  * Features: AI Typing indicator, Suggested chips, Voice recognition, Accessibility.
+ * Wrapped in React.memo for efficiency.
  */
-export default function Chatbot({ location, progressStep, updateStep }) {
+const Chatbot = memo(({ location, progressStep, updateStep }) => {
     const [isOpen, setIsOpen] = useState(false);
     const [messages, setMessages] = useState([
         { text: "👋 Hi! I'm your Election Buddy. How can I help you navigate the voting process today?", sender: 'bot' }
@@ -51,7 +53,10 @@ export default function Chatbot({ location, progressStep, updateStep }) {
             recognitionRef.current.continuous = false;
             recognitionRef.current.lang = 'en-US';
 
-            recognitionRef.current.onstart = () => setIsListening(true);
+            recognitionRef.current.onstart = () => {
+                setIsListening(true);
+                trackChatbotInteraction('voice_started');
+            };
             recognitionRef.current.onresult = (event) => {
                 const transcript = event.results[0][0].transcript;
                 setInputValue(transcript);
@@ -69,6 +74,7 @@ export default function Chatbot({ location, progressStep, updateStep }) {
         setInputValue('');
         setMessages(prev => [...prev, { text: msgToSend, sender: 'user' }]);
         setIsTyping(true);
+        trackChatbotInteraction('message_sent');
         
         try {
             const contextData = { location, progressStep, hasRegistered: progressStep > 0 };
@@ -90,7 +96,11 @@ export default function Chatbot({ location, progressStep, updateStep }) {
     };
 
     const toggleChat = () => {
-        setIsOpen(!isOpen);
+        setIsOpen(prev => {
+            const newState = !prev;
+            if (newState) trackChatbotInteraction('chat_opened');
+            return newState;
+        });
     };
 
     const handleVoiceClick = () => {
@@ -164,4 +174,6 @@ export default function Chatbot({ location, progressStep, updateStep }) {
             </button>
         </section>
     );
-}
+});
+
+export default Chatbot;

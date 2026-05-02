@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { memo } from 'react';
 import { Link } from 'react-router-dom';
 
 const steps = [
@@ -41,7 +41,7 @@ const steps = [
     },
 ];
 
-export default function Timeline({ progressStep }) {
+const Timeline = memo(({ progressStep }) => {
     return (
         <main id="timeline-section" className="container" role="main">
             <header className="timeline-header">
@@ -114,4 +114,6 @@ export default function Timeline({ progressStep }) {
             </div>
         </main>
     );
-}
+});
+
+export default Timeline;
