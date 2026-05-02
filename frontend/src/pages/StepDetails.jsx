@@ -131,7 +131,7 @@ export default function StepDetails({ location }) {
                             loading="lazy"
                             allowFullScreen
                             referrerPolicy="no-referrer-when-downgrade"
-                            src={`https://www.google.com/maps/embed/v1/search?key=AIzaSyD-9tSrke72PouQMnMX-a7eZSW0jkFMBWY&q=polling+place+near+${encodeURIComponent(location?.city || location?.region || 'me')}`}
+                            src={`https://www.google.com/maps/embed/v1/search?key=${import.meta.env.VITE_GOOGLE_MAPS_API_KEY || ''}&q=polling+place+near+${encodeURIComponent(location?.city || location?.region || 'me')}`}
                             style={{border: 0, display: 'block'}}
                             aria-label="Google Maps showing polling places nearby"
                         />
