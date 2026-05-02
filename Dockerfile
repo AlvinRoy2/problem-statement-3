@@ -21,6 +21,7 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 # Copy backend source code
 COPY main.py .
+COPY run.py .
 
 # Copy built frontend from Stage 1
 COPY --from=frontend-builder /app/frontend/dist ./frontend/dist
@@ -29,7 +30,5 @@ COPY --from=frontend-builder /app/frontend/dist ./frontend/dist
 EXPOSE 8080
 
 # Run the application
-# We use uvicorn to serve the FastAPI app
-# PORT environment variable is automatically set by Cloud Run
-# Using shell form to allow environment variable expansion
-CMD uvicorn main:app --host 0.0.0.0 --port ${PORT:-8080}
+# We use run.py to safely read the PORT environment variable and start uvicorn
+CMD ["python", "run.py"]
