@@ -40,7 +40,8 @@ class SecurityHeaderMiddleware(BaseHTTPMiddleware):
 
 app.add_middleware(SecurityHeaderMiddleware)
 
-# Serve Vite assets
+# --- Static File Serving ---
+# 1. Serve Vite assets (JS/CSS)
 if os.path.exists("frontend/dist/assets"):
     app.mount("/assets", StaticFiles(directory="frontend/dist/assets"), name="assets")
 
@@ -77,11 +78,6 @@ class ChatResponse(BaseModel):
     next_step: Optional[int] = 0
 
 # --- Routes ---
-@app.get("/")
-async def read_index():
-    if os.path.exists("frontend/dist/index.html"):
-        return FileResponse("frontend/dist/index.html")
-    raise HTTPException(status_code=404, detail="Frontend build not found.")
 
 @app.post("/api/chat", response_model=ChatResponse)
 async def process_chat(request: ChatRequest, req: Request):
@@ -149,3 +145,28 @@ Rules:
     except Exception as e:
         print(f"Groq API Error: {e}")
         raise HTTPException(status_code=500, detail="The AI engine is temporarily unavailable.")
+
+# --- Frontend / SPA Routes ---
+# This catch-all route serves static files from the root of 'dist' (like images)
+# and falls back to index.html for SPA routing.
+# MUST be at the end to avoid intercepting API routes.
+@app.get("/{full_path:path}")
+async def serve_frontend(full_path: str):
+    # 1. Check if the path is empty (homepage)
+    if not full_path:
+        index_path = "frontend/dist/index.html"
+        if os.path.exists(index_path):
+            return FileResponse(index_path)
+        raise HTTPException(status_code=404, detail="Frontend build not found.")
+
+    # 2. Check if it's a file in the dist root (like step1.png, favicon.svg)
+    file_path = os.path.join("frontend/dist", full_path)
+    if os.path.isfile(file_path):
+        return FileResponse(file_path)
+
+    # 3. Otherwise, serve index.html for SPA routing (e.g., /step/1)
+    index_path = "frontend/dist/index.html"
+    if os.path.exists(index_path):
+        return FileResponse(index_path)
+    
+    raise HTTPException(status_code=404, detail="Frontend build not found.")
