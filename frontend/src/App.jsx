@@ -10,7 +10,7 @@ import './App.css';
 const Chatbot = lazy(() => import('./components/Chatbot'));
 const StepDetails = lazy(() => import('./pages/StepDetails'));
 
-function MainTimeline({ progressStep, location }) {
+function MainTimeline({ progressStep, location, user, loginWithGoogle, logout }) {
     const loc = useLocation();
     
     useEffect(() => {
@@ -25,7 +25,7 @@ function MainTimeline({ progressStep, location }) {
 
     return (
         <>
-            <HeroSection location={location} />
+            <HeroSection location={location} user={user} loginWithGoogle={loginWithGoogle} logout={logout} />
             <Timeline progressStep={progressStep} />
         </>
     );
@@ -40,7 +40,7 @@ const Loader = () => (
 
 function App() {
     // Custom hook handling all state persistence and geolocation
-    const { location, progressStep, updateStep } = useElectionState();
+    const { location, progressStep, updateStep, user, loginWithGoogle, logout } = useElectionState();
 
     // Initialize Google Analytics on load (Google Services Requirement)
     useEffect(() => {
@@ -57,7 +57,7 @@ function App() {
 
             <Suspense fallback={<Loader />}>
                 <Routes>
-                    <Route path="/" element={<MainTimeline progressStep={progressStep} location={location} />} />
+                    <Route path="/" element={<MainTimeline progressStep={progressStep} location={location} user={user} loginWithGoogle={loginWithGoogle} logout={logout} />} />
                     <Route path="/step/:id" element={<StepDetails location={location} />} />
                 </Routes>
                 

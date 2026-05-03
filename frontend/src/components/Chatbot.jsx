@@ -1,4 +1,5 @@
-import React, { useState, useEffect, useRef, memo } from 'react';
+import React, { useState, useEffect, useRef, memo, useCallback } from 'react';
+import debounce from 'lodash.debounce';
 import { sendChatMessage } from '../utils/apiService';
 import { trackChatbotInteraction } from '../utils/googleAnalytics';
 
@@ -67,7 +68,29 @@ const Chatbot = memo(({ location, progressStep, updateStep }) => {
         }
     }, []);
 
-    const handleSend = async (text) => {
+    // Debounced API call to prevent spam
+    const debouncedSend = useCallback(
+        debounce(async (msgToSend, contextData, step) => {
+            try {
+                const response = await sendChatMessage(msgToSend, contextData, step);
+                // Artificial delay for better UX
+                setTimeout(() => {
+                    setIsTyping(false);
+                    setMessages(prev => [...prev, { text: response.reply, sender: 'bot' }]);
+                    
+                    if (response.action === 'UPDATE_STEP') {
+                        updateStep(parseInt(response.next_step));
+                    }
+                }, 800);
+            } catch (error) {
+                setIsTyping(false);
+                setMessages(prev => [...prev, { text: "Sorry, I'm having trouble connecting. Please try again.", sender: 'bot' }]);
+            }
+        }, 500),
+        []
+    );
+
+    const handleSend = (text) => {
         const msgToSend = typeof text === 'string' ? text : inputValue;
         if (!msgToSend || !msgToSend.trim()) return;
         
@@ -76,24 +99,10 @@ const Chatbot = memo(({ location, progressStep, updateStep }) => {
         setIsTyping(true);
         trackChatbotInteraction('message_sent');
         
-        try {
-            const contextData = { location, progressStep, hasRegistered: progressStep > 0 };
-            const response = await sendChatMessage(msgToSend, contextData, progressStep);
-            
-            // Artificial delay for better UX
-            setTimeout(() => {
-                setIsTyping(false);
-                setMessages(prev => [...prev, { text: response.reply, sender: 'bot' }]);
-                
-                if (response.action === 'UPDATE_STEP') {
-                    updateStep(parseInt(response.next_step));
-                }
-            }, 800);
-        } catch (error) {
-            setIsTyping(false);
-            setMessages(prev => [...prev, { text: "Sorry, I'm having trouble connecting. Please try again.", sender: 'bot' }]);
-        }
+        const contextData = { location, progressStep, hasRegistered: progressStep > 0 };
+        debouncedSend(msgToSend, contextData, progressStep);
     };
+
 
     const toggleChat = () => {
         setIsOpen(prev => {

@@ -52,9 +52,9 @@ describe('Chatbot Component', () => {
         expect(googleAnalytics.trackChatbotInteraction).toHaveBeenCalledWith('message_sent');
         expect(screen.getByText('Test message')).toBeInTheDocument();
 
-        // Wait for AI response (there is an 800ms artificial delay in Chatbot component)
+        // Wait for AI response (there is an 800ms artificial delay in Chatbot component + 500ms debounce)
         await waitFor(() => {
             expect(screen.getByText('Mocked AI Response')).toBeInTheDocument();
-        }, { timeout: 1500 });
+        }, { timeout: 2500 });
     });
 });

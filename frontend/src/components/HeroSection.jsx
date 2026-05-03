@@ -5,7 +5,7 @@ import React, { memo } from 'react';
  * Displays the main header banner, call to actions, and basic stats.
  * Wrapped in React.memo to prevent unnecessary re-renders when global state changes.
  */
-const HeroSection = memo(({ location }) => {
+const HeroSection = memo(({ location, user, loginWithGoogle, logout }) => {
     // Update search URL for Indian context (ECI Electoral Search)
     const eciSearchUrl = 'https://electoralsearch.eci.gov.in/';
 
@@ -16,6 +16,17 @@ const HeroSection = memo(({ location }) => {
                 <div className="hero-img-overlay" />
             </div>
             
+            <div className="auth-bar" style={{ position: 'absolute', top: '10px', right: '20px', zIndex: 10 }}>
+                {user ? (
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                        <span style={{ color: '#fff', fontSize: '0.9rem' }}>Hello, {user.displayName}</span>
+                        <button onClick={logout} className="btn secondary-btn" style={{ padding: '5px 10px', fontSize: '0.8rem' }} aria-label="Sign out">Sign Out</button>
+                    </div>
+                ) : (
+                    <button onClick={loginWithGoogle} className="btn secondary-btn" style={{ padding: '5px 10px', fontSize: '0.8rem' }} aria-label="Sign in with Google">Sign In</button>
+                )}
+            </div>
+
             <div className="hero-content glass-panel">
                 <div className="hero-badge">🇮🇳 Indian Election Assistant</div>
                 <h1 style={{ marginTop: '10px' }}>Your Vote, India's Future</h1>

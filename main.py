@@ -1,23 +1,42 @@
-from fastapi import FastAPI, HTTPException, Request, Response
-from fastapi.staticfiles import StaticFiles
-from fastapi.responses import FileResponse
-from fastapi.middleware.cors import CORSMiddleware
-from starlette.middleware.base import BaseHTTPMiddleware
-from pydantic import BaseModel, Field, field_validator
-from typing import Optional, Dict, Any
-from collections import defaultdict
 import os
-import time
-from groq import Groq
-from dotenv import load_dotenv
+from fastapi import FastAPI, HTTPException, Request
+from fastapi.staticfiles import StaticFiles
+from fastapi.responses import FileResponse, JSONResponse
+from fastapi.middleware.cors import CORSMiddleware
 
-load_dotenv()
+from app.core.security import SecurityHeaderMiddleware
+from app.api.chat import router as chat_router
 
 app = FastAPI(
-    title="Indian Election Buddy API - Groq AI",
-    description="A secure and efficient Indian voting assistant API.",
-    version="2.0.0"
+    title="Indian Election Buddy API - Gemini AI",
+    description="A secure, efficient, and production-ready Indian voting assistant API.",
+    version="3.0.0"
 )
+
+import time
+import logging
+
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+
+# --- Centralized Error Handling ---
+@app.exception_handler(Exception)
+async def global_exception_handler(request, exc):
+    logger.error(f"Unhandled Exception: {exc}", exc_info=True)
+    return JSONResponse(
+        status_code=500,
+        content={"detail": "An internal server error occurred. Our engineers have been notified."}
+    )
+
+# --- Performance Visibility Middleware ---
+@app.middleware("http")
+async def add_process_time_header(request: Request, call_next):
+    start_time = time.time()
+    response = await call_next(request)
+    process_time = time.time() - start_time
+    response.headers["X-Process-Time"] = str(process_time)
+    logger.info(f"{request.method} {request.url.path} completed in {process_time:.4f}s")
+    return response
 
 # --- Security Middleware ---
 app.add_middleware(
@@ -27,144 +46,29 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
-
-class SecurityHeaderMiddleware(BaseHTTPMiddleware):
-    async def dispatch(self, request: Request, call_next):
-        response = await call_next(request)
-        response.headers["X-Content-Type-Options"] = "nosniff"
-        response.headers["X-Frame-Options"] = "DENY"
-        response.headers["X-XSS-Protection"] = "1; mode=block"
-        response.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains"
-        response.headers["Content-Security-Policy"] = "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'self' https://ipapi.co;"
-        return response
-
 app.add_middleware(SecurityHeaderMiddleware)
 
+# --- API Routes ---
+app.include_router(chat_router, prefix="/api")
+
 # --- Static File Serving ---
-# 1. Serve Vite assets (JS/CSS)
 if os.path.exists("frontend/dist/assets"):
     app.mount("/assets", StaticFiles(directory="frontend/dist/assets"), name="assets")
 
-GROQ_API_KEY = os.getenv("GROQ_API_KEY", "")
-client = Groq(api_key=GROQ_API_KEY) if GROQ_API_KEY else None
-
-# --- Simple In-Memory Rate Limiter ---
-_rate_limit_store: Dict[str, list] = defaultdict(list)
-RATE_LIMIT = 15
-RATE_WINDOW = 60
-
-def is_rate_limited(ip: str) -> bool:
-    now = time.time()
-    _rate_limit_store[ip] = [t for t in _rate_limit_store[ip] if now - t < RATE_WINDOW]
-    if len(_rate_limit_store[ip]) >= RATE_LIMIT:
-        return True
-    _rate_limit_store[ip].append(now)
-    return False
-
-# --- Request / Response Models ---
-class ChatRequest(BaseModel):
-    message: str = Field(..., min_length=1, max_length=500)
-    context: Optional[Dict[str, Any]] = None
-    progress_step: Optional[int] = Field(default=0, ge=0, le=3)
-
-    @field_validator("message")
-    @classmethod
-    def sanitize_message(cls, v: str) -> str:
-        return v.strip().replace("<script", "[script]").replace("javascript:", "[js]")
-
-class ChatResponse(BaseModel):
-    reply: str
-    action: Optional[str] = "NONE"
-    next_step: Optional[int] = 0
-
-# --- Routes ---
-
-@app.post("/api/chat", response_model=ChatResponse)
-async def process_chat(request: ChatRequest, req: Request):
-    client_ip = req.client.host if req.client else "unknown"
-    if is_rate_limited(client_ip):
-        raise HTTPException(
-            status_code=429, 
-            detail="Too many requests. Please wait a minute."
-        )
-
-    if not client:
-        return ChatResponse(
-            reply="The AI assistant is currently offline.",
-            action="NONE"
-        )
-
-    location_str = "Location: Unknown"
-    if request.context:
-        loc = request.context.get("location", {}) or {}
-        city = loc.get("city", "Unknown") if isinstance(loc, dict) else "Unknown"
-        region = loc.get("region", "") if isinstance(loc, dict) else ""
-        location_str = f"Location: {city}, {region}"
-
-    system_prompt = f"""You are the 'Election Buddy India', a helpful, highly concise AI voting assistant for Indian elections.
-Current User Context:
-- {location_str}
-- Current Progress Step: {request.progress_step} (0=Registration/EPIC, 1=Research/Constituency, 2=Booth/Method, 3=Voting/EVM)
-
-Rules:
-1. Be extremely concise (2-3 sentences max).
-2. Use Indian terminology (e.g., EPIC card, Lok Sabha, Vidhan Sabha, ECI, NVSP portal).
-3. If they ask about registration, point them to voters.eci.gov.in or NVSP.
-4. Explain that you can't access their private EPIC data but can guide them to check their name in the Electoral Roll.
-5. If they mention they've registered or checked their name, append exactly '[ACTION: UPDATE_STEP X]' where X is the NEW NEXT step number.
-"""
-
-    try:
-        response = client.chat.completions.create(
-            messages=[
-                {"role": "system", "content": system_prompt},
-                {"role": "user", "content": request.message}
-            ],
-            model="llama-3.3-70b-versatile",
-            temperature=0.7,
-            max_tokens=250,
-        )
-
-        reply = response.choices[0].message.content
-        action = "NONE"
-        next_step = request.progress_step
-
-        if "[ACTION: UPDATE_STEP" in reply:
-            try:
-                action_part = reply.split("[ACTION: UPDATE_STEP")[1]
-                step_val = int(action_part.split("]")[0].strip())
-                if 0 <= step_val <= 3:
-                    next_step = step_val
-                    action = "UPDATE_STEP"
-                reply = reply.split("[ACTION:")[0].strip()
-            except (ValueError, IndexError):
-                pass
-
-        return ChatResponse(reply=reply, action=action, next_step=next_step)
-
-    except Exception as e:
-        print(f"Groq API Error: {e}")
-        raise HTTPException(status_code=500, detail="The AI engine is temporarily unavailable.")
-
 # --- Frontend / SPA Routes ---
-# This catch-all route serves static files from the root of 'dist' (like images)
-# and falls back to index.html for SPA routing.
 # MUST be at the end to avoid intercepting API routes.
 @app.get("/{full_path:path}")
 async def serve_frontend(full_path: str):
-    # 1. Check if the path is empty (homepage)
     if not full_path:
         index_path = "frontend/dist/index.html"
         if os.path.exists(index_path):
             return FileResponse(index_path)
         raise HTTPException(status_code=404, detail="Frontend build not found.")
 
-    # 2. Check if it's a file in the dist root (like step1.png, favicon.svg)
     file_path = os.path.join("frontend/dist", full_path)
     if os.path.isfile(file_path):
         return FileResponse(file_path)
 
-    # 3. Otherwise, serve index.html for SPA routing (e.g., /step/1)
     index_path = "frontend/dist/index.html"
     if os.path.exists(index_path):
         return FileResponse(index_path)
